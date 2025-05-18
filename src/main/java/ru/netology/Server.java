@@ -1,6 +1,6 @@
 package ru.netology;
 
-import org.w3c.dom.ls.LSOutput;
+import org.apache.http.NameValuePair;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -11,13 +11,11 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
 
 public class Server {
     private final Set<String> staticFiles = ConcurrentHashMap.newKeySet();
@@ -57,16 +55,24 @@ public class Server {
             if (request == null) return;
 
             System.out.println("Пришёл запрос: " + request.method() + " " + request.path());
+            System.out.println("Параметры запроса:");
+            request.queryParams().stream().filter(Objects::nonNull).map(x -> x.getName() + "=" + x.getValue())
+                    .forEach(System.out::println);
+            String subPath = request.path().contains("?") ?
+                    request.path().substring(0, request.path().indexOf("?")) :
+                    request.path();
             // Проверяем есть ли кастомный обработчик для этого пути и метода
-            if (handlers.containsKey(request.method()) &&
-                    handlers.get(request.method()).containsKey(request.path())) {
-                System.out.println("Найден обработчик для " + request.method() + " " + request.path());
-                handlers.get(request.method()).get(request.path()).handle(request, out);
-                return;
+            if (handlers.containsKey(request.method())) {
+                if(handlers.get(request.method()).entrySet().stream()
+                        .anyMatch(x -> x.getKey().startsWith(subPath))) {
+                    System.out.println("Найден обработчик для " + request.method() + " " + request.path());
+                    handlers.get(request.method()).get(request.path()).handle(request, out);
+                    return;
+                }
             }
 
             // Если нет кастомного обработчика, проверяем статические файлы
-            if (staticFiles.contains(request.path())) {
+            if (staticFiles.contains(subPath)) {
                 handleStaticFile(request.path(), out);
                 return;
             }
@@ -170,6 +176,9 @@ public class Server {
             in.read(buffer, 0, contentLength);
             body.append(buffer);
         }
-        return new Request(method, path, headers, body.toString());
+
+        Request request = new Request(method, path, headers, body.toString(), null);
+        List<NameValuePair> queryParams = request.getQueryParams();
+        return new Request(method, path, headers, body.toString(), queryParams);
     }
 }
