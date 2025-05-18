@@ -58,8 +58,21 @@ public class Server {
 
             System.out.println("Пришёл запрос: " + request.method() + " " + request.path());
             System.out.println("Параметры запроса:");
-            request.getQueryParams().stream().map(x -> x.getName() + "=" + x.getValue())
-                    .forEach(System.out::println);
+            List<NameValuePair> params = request.getQueryParams();
+            if (params != null && !params.isEmpty()) {
+                params.stream().map(x -> x.getName() + "=" + x.getValue())
+                        .forEach(System.out::println);
+            } else {
+                System.out.println("null");
+            }
+            System.out.println("Тело запроса:");
+            List<NameValuePair> body = request.getPostParams();
+            if (body != null) {
+                body.stream().map(x -> x.getName() + "=" + x.getValue())
+                        .forEach(System.out::println);
+            } else {
+                System.out.println("null");
+            }
             String subPath = request.path().contains("?") ?
                     request.path().substring(0, request.path().indexOf("?")) :
                     request.path();
