@@ -1,27 +1,29 @@
 package ru.netology;
 
+import org.w3c.dom.ls.LSOutput;
+
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.Buffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Server {
-
-    final List<String> validPaths = List.of(
-            "/index.html", "/spring.svg", "/spring.png", "/resources.html",
-            "/styles.css", "/app.js", "/links.html", "/forms.html",
-            "/classic.html", "/events.html", "/events.js");
+    private final Set<String> staticFiles = ConcurrentHashMap.newKeySet();
     private final int port;
     private final ExecutorService threadPool;
+    private final Map<String, Map<String, Handler>> handlers = new ConcurrentHashMap<>();
 
     public Server(int port) {
         this.port = port;
@@ -39,47 +41,54 @@ public class Server {
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
-            threadPool.shutdown();
+            if (threadPool != null) {
+                threadPool.shutdown();
+            }
         }
     }
 
     private void handleConnection(Socket socket) {
         try (
                 socket;
-                final var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                final var out = new BufferedOutputStream(socket.getOutputStream());
+                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                BufferedOutputStream out = new BufferedOutputStream(socket.getOutputStream())
         ) {
-            System.out.println("New connection " + socket.getPort());
-            // read only request line for simplicity
-            // must be in form GET /path HTTP/1.1
-            final var requestLine = in.readLine();
-            if (requestLine == null) return;
+            Request request = parseRequest(in);
+            if (request == null) return;
 
-            final var parts = requestLine.split(" ");
-            if (parts.length != 3) {
-                // just close socket
-                return;
-            }
-            final var path = parts[1];
-            if (!validPaths.contains(path)) {
-                sendNotFound(out);
+            System.out.println("Пришёл запрос: " + request.method() + " " + request.path());
+            // Проверяем есть ли кастомный обработчик для этого пути и метода
+            if (handlers.containsKey(request.method()) &&
+                    handlers.get(request.method()).containsKey(request.path())) {
+                System.out.println("Найден обработчик для " + request.method() + " " + request.path());
+                handlers.get(request.method()).get(request.path()).handle(request, out);
                 return;
             }
 
-            final var filePath = Path.of(".", "public", path);
-            if (!Files.exists(filePath)) {
-                sendNotFound(out);
+            // Если нет кастомного обработчика, проверяем статические файлы
+            if (staticFiles.contains(request.path())) {
+                handleStaticFile(request.path(), out);
                 return;
             }
 
-            if (path.equals("/classic.html")) {
-                handleClassicHtml(filePath, out);
-            } else {
-                handleRegularFile(filePath, out);
-            }
-
+            System.out.println("Не найден обработчик для " + request.method() + " " + request.path());
+            sendNotFound(out);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
+        }
+    }
+
+    private void handleStaticFile(String path, BufferedOutputStream out) throws IOException {
+        Path filePath = Path.of(".", "public", path);
+        if (!Files.exists(filePath)) {
+            sendNotFound(out);
+            return;
+        }
+
+        if (path.equals("/classic.html")) {
+            handleClassicHtml(filePath, out);
+        } else {
+            handleRegularFile(filePath, out);
         }
     }
 
@@ -124,5 +133,43 @@ public class Server {
                         "\r\n"
         ).getBytes());
         out.flush();
+    }
+
+    public void addStaticFiles(List<String> paths) {
+        staticFiles.addAll(paths);
+    }
+
+    public void addHandler(String method, String path, Handler handler) {
+        handlers.computeIfAbsent(method, k -> new ConcurrentHashMap<>()).put(path, handler);
+        System.out.println("Добавлен обработчик: " + method + " " + path);
+    }
+
+    private Request parseRequest(BufferedReader in) throws IOException {
+        String requestLine = in.readLine();
+        if (requestLine == null) return null;
+
+        String[] parts = requestLine.split(" ");
+        //if (parts.length != 3) return null;
+
+        String method = parts[0].toUpperCase();
+        String path = parts[1];
+
+        Map<String, String> headers = new HashMap<>();
+        String line;
+        while ((line = in.readLine()) != null && !line.isEmpty()) {
+            String[] headerParts = line.split(":", 2);
+            if (headerParts.length == 2) {
+                headers.put(headerParts[0].trim(), headerParts[1].trim());
+            }
+        }
+
+        StringBuilder body = new StringBuilder();
+        if (headers.containsKey("Content-Length")) {
+            int contentLength = Integer.parseInt(headers.get("Content-Length"));
+            char[] buffer = new char[contentLength];
+            in.read(buffer, 0, contentLength);
+            body.append(buffer);
+        }
+        return new Request(method, path, headers, body.toString());
     }
 }
