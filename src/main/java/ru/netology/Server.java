@@ -1,9 +1,6 @@
 package ru.netology;
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
@@ -18,6 +15,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.apache.http.NameValuePair;
+import ru.netology.parts.Part;
 
 public class Server {
     private final Set<String> staticFiles = ConcurrentHashMap.newKeySet();
@@ -73,6 +71,26 @@ public class Server {
             } else {
                 System.out.println("null");
             }
+
+            if (request.isMultipart()) {
+                List<Part> parts = request.getParts();
+                for (Part part : parts) {
+                    if (part.isFile()) {
+                        System.out.println("Файл: " + part.getName());
+                        System.out.println("Имя файла: " + part.getFileName());
+                        System.out.println("Размер: " + part.getSize());
+
+                        // Сохранение файла
+                        try (InputStream is = part.getInputStream()) {
+                            Files.copy(is, Path.of("uploads", part.getFileName()));
+                        }
+                    } else {
+                        System.out.println("Поле: " + part.getName());
+                        System.out.println("Значение: " + part.getValue());
+                    }
+                }
+            }
+
             String subPath = request.path().contains("?") ?
                     request.path().substring(0, request.path().indexOf("?")) :
                     request.path();

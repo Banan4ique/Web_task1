@@ -10,7 +10,7 @@ public class Main {
     server.addStaticFiles(List.of(
             "/index.html", "/spring.svg", "/spring.png", "/resources.html",
             "/styles.css", "/app.js", "/links.html", "/forms.html",
-            "/classic.html", "/events.html", "/events.js"
+            "/classic.html", "/events.html", "/events.js", "/multi.html"
     ));
 
     // добавление хендлеров (обработчиков)
@@ -30,6 +30,17 @@ public class Main {
               "Connection: close\r\n" +
               "\r\n" +
               "POST messages";
+      responseStream.write(response.getBytes());
+      responseStream.flush();
+    });
+
+    server.addHandler("POST", "/upload", (request, responseStream) -> {
+      String response = "HTTP/1.1 200 OK\r\n" +
+              "Content-Type: multipart/form-data\r\n" +
+              "Content-Length: 77\r\n" +
+              "Connection: close\r\n" +
+              "\r\n" +
+              "GET uploaded";
       responseStream.write(response.getBytes());
       responseStream.flush();
     });
