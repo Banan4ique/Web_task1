@@ -9,10 +9,7 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -57,22 +54,15 @@ public class Server {
             if (request == null) return;
 
             System.out.println("Пришёл запрос: " + request.method() + " " + request.path());
+
             System.out.println("Параметры запроса:");
-            List<NameValuePair> params = request.getQueryParams();
-            if (params != null && !params.isEmpty()) {
-                params.stream().map(x -> x.getName() + "=" + x.getValue())
-                        .forEach(System.out::println);
-            } else {
-                System.out.println("null");
-            }
+            request.queryParams().stream().filter(Objects::nonNull).map(x -> x.getName() + "=" + x.getValue())
+                    .forEach(System.out::println);
+
             System.out.println("Тело запроса:");
-            List<NameValuePair> body = request.getPostParams();
-            if (body != null) {
-                body.stream().map(x -> x.getName() + "=" + x.getValue())
-                        .forEach(System.out::println);
-            } else {
-                System.out.println("null");
-            }
+            request.bodyParams().stream().filter(Objects::nonNull).map(x -> x.getName() + "=" + x.getValue())
+                    .forEach(System.out::println);
+
             String subPath = request.path().contains("?") ?
                     request.path().substring(0, request.path().indexOf("?")) :
                     request.path();
@@ -191,6 +181,9 @@ public class Server {
             in.read(buffer, 0, contentLength);
             body.append(buffer);
         }
-        return new Request(method, path, headers, body.toString());
+        Request request = new Request(method, path, headers, body.toString(), null, null);
+        List<NameValuePair> queryParams = request.getQueryParams();
+        List<NameValuePair> bodyParams = request.getPostParams();
+        return new Request(method, path, headers, body.toString(), queryParams, bodyParams);
     }
 }
