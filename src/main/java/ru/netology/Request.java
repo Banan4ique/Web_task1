@@ -2,7 +2,6 @@ package ru.netology;
 
 import org.apache.commons.fileupload.*;
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
-import org.apache.commons.fileupload.servlet.ServletRequestContext;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
 import ru.netology.parts.FieldPart;
@@ -19,34 +18,39 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-public record Request(String method, String path, Map<String, String> headers, String body) {
+public record Request(String method, String path, Map<String, String> headers,
+                      String body, List<NameValuePair> queryParams, List<NameValuePair> bodyParams) {
     public List<NameValuePair> getQueryParam (String name) {
-        return URLEncodedUtils.parse(URI.create(path), "UTF-8")
-                .stream().filter(x -> x.getName().equals(name))
-                .toList();
+        if (path != null) {
+            return URLEncodedUtils.parse(URI.create(path), "UTF-8")
+                    .stream().filter(x -> x.getName().equals(name))
+                    .toList();
+        } else {
+            return Collections.emptyList();
+        }
     }
 
     public List<NameValuePair> getQueryParams() {
-        return URLEncodedUtils.parse(URI.create(path), "UTF-8");
+        return path != null ? URLEncodedUtils.parse(URI.create(path), "UTF-8") : Collections.emptyList();
     }
 
     public List<NameValuePair> getPostParam (String name) {
         if (!method.equals("GET") && headers.containsKey("Content-Type") &&
-                headers.get("Content-Type").equals("application/x-www-form-urlencoded")) {
+                headers.get("Content-Type").equals("application/x-www-form-urlencoded") && body != null) {
             return URLEncodedUtils.parse(URI.create("?" + body), "UTF-8")
                     .stream().filter(x -> x.getName().equals(name))
                     .toList();
         } else {
-            return null;
+            return Collections.emptyList();
         }
     }
 
     public List<NameValuePair> getPostParams() {
         if (!method.equals("GET") && headers.containsKey("Content-Type") &&
-                headers.get("Content-Type").equals("application/x-www-form-urlencoded")) {
+                headers.get("Content-Type").equals("application/x-www-form-urlencoded") && body != null) {
             return URLEncodedUtils.parse(URI.create("?" + body), "UTF-8");
         } else {
-            return null;
+            return Collections.emptyList();
         }
     }
 
@@ -115,19 +119,6 @@ public record Request(String method, String path, Map<String, String> headers, S
                 result.add(part);
             }
         }
-        return result;
-    }
-
-    public List<Part> getPart(String name) {
-        List<Part> allParts = getParts();
-        List<Part> result = new ArrayList<>();
-
-        for (Part part : allParts) {
-            if (part.getName().equals(name)) {
-                result.add(part);
-            }
-        }
-
         return result;
     }
 }
