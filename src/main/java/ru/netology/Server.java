@@ -191,6 +191,9 @@ public class Server {
             in.read(buffer, 0, contentLength);
             body.append(buffer);
         }
-        return new Request(method, path, headers, body.toString());
+        Request request = new Request(method, path, headers, body.toString(), null, null);
+        List<NameValuePair> queryParams = request.getQueryParams();
+        List<NameValuePair> bodyParams = request.getPostParams();
+        return new Request(method, path, headers, body.toString(), queryParams, bodyParams);
     }
 }
