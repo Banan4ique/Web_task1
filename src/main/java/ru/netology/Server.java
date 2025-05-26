@@ -54,30 +54,30 @@ public class Server {
             Request request = parseRequest(in);
             if (request == null) return;
 
-            System.out.println("Пришёл запрос: " + request.method() + " " + request.path());
+            System.out.println("Пришёл запрос: " + request.getMethod() + " " + request.getPath());
             System.out.println("Параметры запроса:");
-            request.queryParams().stream().filter(Objects::nonNull).map(x -> x.getName() + "=" + x.getValue())
+            request.getQueryParams().stream().filter(Objects::nonNull).map(x -> x.getName() + "=" + x.getValue())
                     .forEach(System.out::println);
-            String subPath = request.path().contains("?") ?
-                    request.path().substring(0, request.path().indexOf("?")) :
-                    request.path();
+            String subPath = request.getPath().contains("?") ?
+                    request.getPath().substring(0, request.getPath().indexOf("?")) :
+                    request.getPath();
             // Проверяем есть ли кастомный обработчик для этого пути и метода
-            if (handlers.containsKey(request.method())) {
-                if(handlers.get(request.method()).entrySet().stream()
+            if (handlers.containsKey(request.getMethod())) {
+                if(handlers.get(request.getMethod()).entrySet().stream()
                         .anyMatch(x -> x.getKey().startsWith(subPath))) {
-                    System.out.println("Найден обработчик для " + request.method() + " " + request.path());
-                    handlers.get(request.method()).get(request.path()).handle(request, out);
+                    System.out.println("Найден обработчик для " + request.getMethod() + " " + request.getPath());
+                    handlers.get(request.getMethod()).get(request.getPath()).handle(request, out);
                     return;
                 }
             }
 
             // Если нет кастомного обработчика, проверяем статические файлы
             if (staticFiles.contains(subPath)) {
-                handleStaticFile(request.path(), out);
+                handleStaticFile(request.getPath(), out);
                 return;
             }
 
-            System.out.println("Не найден обработчик для " + request.method() + " " + request.path());
+            System.out.println("Не найден обработчик для " + request.getMethod() + " " + request.getPath());
             sendNotFound(out);
         } catch (IOException e) {
             e.printStackTrace();
@@ -177,8 +177,6 @@ public class Server {
             body.append(buffer);
         }
 
-        Request request = new Request(method, path, headers, body.toString(), null);
-        List<NameValuePair> queryParams = request.getQueryParams();
-        return new Request(method, path, headers, body.toString(), queryParams);
+        return new Request(method, path, headers, body.toString());
     }
 }
