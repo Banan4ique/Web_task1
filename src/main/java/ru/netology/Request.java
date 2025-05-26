@@ -8,8 +8,46 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-public record Request(String method, String path, Map<String, String> headers,
-                      String body, List<NameValuePair> queryParams, List<NameValuePair> bodyParams) {
+public class Request {
+
+    private final String method;
+    private final String path;
+    private final Map<String, String> headers;
+    private final String body;
+    private final List<NameValuePair> queryParams;
+    private final List<NameValuePair> postParams;
+
+    public Request(String method, String path, Map<String, String> headers, String body) {
+        this.method = method;
+        this.path = path;
+        this.headers =headers;
+        this.body = body;
+        this.queryParams = path != null ?
+                URLEncodedUtils.parse(URI.create(path), "UTF-8") :
+                Collections.emptyList();
+        this.postParams = !method.equals("GET") && headers.containsKey("Content-Type") &&
+                headers.get("Content-Type").equals("application/x-www-form-urlencoded") && body != null ?
+                URLEncodedUtils.parse(URI.create("?" + body), "UTF-8") :
+                Collections.emptyList();
+
+    }
+
+    public String getMethod() {
+        return method;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    public Map<String, String> getHeaders() {
+        return headers;
+    }
+
+    public String getBody() {
+        return body;
+    }
+
     public List<NameValuePair> getQueryParam (String name) {
         if (path != null) {
             return URLEncodedUtils.parse(URI.create(path), "UTF-8")
@@ -21,7 +59,7 @@ public record Request(String method, String path, Map<String, String> headers,
     }
 
     public List<NameValuePair> getQueryParams() {
-        return path != null ? URLEncodedUtils.parse(URI.create(path), "UTF-8") : Collections.emptyList();
+        return queryParams;
     }
 
     public List<NameValuePair> getPostParam (String name) {
@@ -36,11 +74,6 @@ public record Request(String method, String path, Map<String, String> headers,
     }
 
     public List<NameValuePair> getPostParams() {
-        if (!method.equals("GET") && headers.containsKey("Content-Type") &&
-                headers.get("Content-Type").equals("application/x-www-form-urlencoded") && body != null) {
-            return URLEncodedUtils.parse(URI.create("?" + body), "UTF-8");
-        } else {
-            return Collections.emptyList();
-        }
+        return postParams;
     }
 }
